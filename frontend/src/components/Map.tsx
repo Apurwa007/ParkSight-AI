@@ -18,6 +18,7 @@ export default function Map({ hotspotsData, spilloverData, warRoomResult, onHots
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const enforcementMarkersRef = useRef<maplibregl.Marker[]>([]);
   
+  const [styleLoaded, setStyleLoaded] = useState(false);
   const [layers, setLayers] = useState({
     'Hotspots': true,
     'Risk Rings': true,
@@ -50,6 +51,8 @@ export default function Map({ hotspotsData, spilloverData, warRoomResult, onHots
 
     map.current.on('load', () => {
       if (!map.current) return;
+
+      setStyleLoaded(true);
 
       // Force resize to pick up correct container dimensions
       map.current.resize();
@@ -115,12 +118,13 @@ export default function Map({ hotspotsData, spilloverData, warRoomResult, onHots
     return () => {
       map.current?.remove();
       map.current = null;
+      setStyleLoaded(false);
     };
   }, []);
 
   // Update Data and Bounds
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
+    if (!map.current || !styleLoaded) return;
 
     // Update Sources
     const hotspotsSrc = map.current.getSource('hotspots') as maplibregl.GeoJSONSource | undefined;
@@ -220,7 +224,7 @@ export default function Map({ hotspotsData, spilloverData, warRoomResult, onHots
       });
     }
 
-  }, [hotspotsData, spilloverData, layers, onHotspotClick]);
+  }, [hotspotsData, spilloverData, layers, onHotspotClick, styleLoaded]);
 
   // Handle Enforcement Layers
   useEffect(() => {
