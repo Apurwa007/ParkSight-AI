@@ -40,7 +40,7 @@ def run_etl(csv_path="dataset.csv"):
     # 4. Generate Current Inference Data
     # Let's pretend "current time" is the max timestamp in the dataset
     df['created_datetime'] = pd.to_datetime(df['created_datetime'], format='mixed', errors='coerce', utc=True)
-    max_time = df['created_datetime'].max().floor('H')
+    max_time = df['created_datetime'].max().floor('h')
     
     print(f"Simulating current time as: {max_time}")
     

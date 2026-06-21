@@ -42,7 +42,7 @@ def fetch_historical_weather(start_date, end_date):
         print(f"Failed to fetch weather from API: {e}. Using dry fallback.")
     
     # Return fallback dataframe if API fails
-    idx = pd.date_range(start_date, end_date, freq='H', tz='UTC')
+    idx = pd.date_range(start_date, end_date, freq='h', tz='UTC')
     return pd.DataFrame({
         'time_hour': idx,
         'precipitation_mm': 0.0,
@@ -144,14 +144,14 @@ class MLEngine:
             }
 
         # Time-series aggregation
-        df['time_hour'] = df['created_datetime'].dt.floor('H')
+        df['time_hour'] = df['created_datetime'].dt.floor('h')
         ts_df = df.groupby(['cluster_id', 'time_hour']).size().reset_index(name='violation_count')
         
         # Reindex to ensure all hours are present
         all_clusters = []
         for c in ts_df['cluster_id'].unique():
             c_df = ts_df[ts_df['cluster_id'] == c].set_index('time_hour')
-            idx = pd.date_range(ts_df['time_hour'].min(), ts_df['time_hour'].max(), freq='H')
+            idx = pd.date_range(ts_df['time_hour'].min(), ts_df['time_hour'].max(), freq='h')
             c_df = c_df.reindex(idx, fill_value=0).reset_index().rename(columns={'index': 'time_hour'})
             c_df['cluster_id'] = c
             all_clusters.append(c_df)
