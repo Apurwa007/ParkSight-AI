@@ -7,25 +7,70 @@ from database import engine, SessionLocal, Base
 from models import Hotspot, CityMetric, SmartAlert
 from ml_engine import MLEngine
 
+def to_native(val):
+    """Convert numpy data types to native Python types for database serialization."""
+    if val is None:
+        return None
+    if hasattr(val, "item"): # numpy scalar types
+        return val.item()
+    if isinstance(val, dict):
+        return {k: to_native(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [to_native(x) for x in val]
+    return val
+
+def load_violations_dataframe(db):
+    """
+    Load violations data from PostgreSQL database into a Pandas DataFrame.
+    If the database table is empty and local CSV exists, automatically seed it.
+    """
+    from models import Violation
+    import sys
+    
+    try:
+        count = db.query(Violation).count()
+    except Exception as e:
+        print(f"Error checking violations table: {e}. Attempting table creation...")
+        Base.metadata.create_all(bind=engine)
+        count = 0
+        
+    if count == 0:
+        # Check if local CSV exists to seed database
+        csv_path = "jan to may police violation_anonymized791b166.csv"
+        if not os.path.isfile(csv_path):
+            csv_path = "../jan to may police violation_anonymized791b166.csv"
+        if not os.path.isfile(csv_path):
+            csv_path = "dataset.csv"
+            
+        if os.path.isfile(csv_path):
+            print("Violations table is empty. Seeding from local CSV...")
+            import subprocess
+            # Resolve script path
+            script_path = os.path.join(os.path.dirname(__file__), "upload_csv_to_db.py")
+            subprocess.run([sys.executable, script_path], check=True)
+            count = db.query(Violation).count()
+        
+    if count == 0:
+        return None
+            
+    print("Loading dataset from PostgreSQL database...")
+    query = "SELECT id, latitude, longitude, location, junction_name, created_datetime FROM violations"
+    df = pd.read_sql(query, con=db.bind)
+    return df
+
 def run_etl(csv_path="dataset.csv"):
-    print(f"Starting ML and ETL process from {csv_path}...")
+    print("Starting ML and ETL process...")
     
     # 1. Initialize Database
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     
-    if not os.path.isfile(csv_path):
-        # check alternative name
-        alt_path = "jan to may police violation_anonymized791b166.csv"
-        if os.path.isfile(alt_path):
-            csv_path = alt_path
-        else:
-            print(f"Error: {csv_path} not found.")
-            return
-
-    # 2. Load CSV
-    print("Loading Dataset...")
-    df = pd.read_csv(csv_path)
+    # 2. Load Dataset
+    df = load_violations_dataframe(db)
+    if df is None:
+        print("Error: No violation data found in database and no CSV to seed it.")
+        db.close()
+        return
 
     # 3. Train Model
     ml = MLEngine()
@@ -96,16 +141,16 @@ def run_etl(csv_path="dataset.csv"):
         
         hs = Hotspot(
             id=str(uuid.uuid4()),
-            center_lat=center['lat'],
-            center_lon=center['lon'],
-            radius_meters=150, # approx
-            parking_impact_score=pis,
-            mobility_disruption_index=mdi, # store the computed MDI score
-            spillover_impact_score=sis,
-            risk_confidence=0.97 + 0.028 * (risk['risk_score_1h'] / 100.0), # Storing high-accuracy confidence
+            center_lat=to_native(center['lat']),
+            center_lon=to_native(center['lon']),
+            radius_meters=150.0, # approx
+            parking_impact_score=to_native(pis),
+            mobility_disruption_index=to_native(mdi), # store the computed MDI score
+            spillover_impact_score=to_native(sis),
+            risk_confidence=to_native(0.97 + 0.028 * (risk['risk_score_1h'] / 100.0)), # Storing high-accuracy confidence
             recommended_priority=1 if risk['risk_category_1h'] == 'Critical' else 2,
             last_updated=max_time,
-            shap_values=shap_vals,
+            shap_values=to_native(shap_vals),
             location_name=center.get('location_name', f"Zone {str(c_id)[:4]}")
         )
         db.add(hs)
@@ -118,9 +163,9 @@ def run_etl(csv_path="dataset.csv"):
     avg_risk = sum([h.mobility_disruption_index for h in hotspots]) / len(hotspots) if hotspots else 0
     cm = CityMetric(
         timestamp=max_time,
-        city_mobility_risk_score=avg_risk,
+        city_mobility_risk_score=to_native(avg_risk),
         cmrs_category="Red" if avg_risk > 80 else "Orange" if avg_risk > 60 else "Yellow",
-        preventable_mobility_loss_pct=min(100, avg_risk * 0.4)
+        preventable_mobility_loss_pct=to_native(min(100, avg_risk * 0.4))
     )
     db.add(cm)
     db.commit()
@@ -128,13 +173,17 @@ def run_etl(csv_path="dataset.csv"):
 
 def load_real_scenario(scenario_name):
     print(f"Loading real data scenario: {scenario_name}")
-    csv_path = "jan to may police violation_anonymized791b166.csv"
-    if not os.path.isfile(csv_path):
-        csv_path = "dataset.csv"
+    
+    db = SessionLocal()
+    df = None
+    try:
+        df = load_violations_dataframe(db)
+    except Exception as e:
+        print(f"Failed to load data from database: {e}")
         
-    # Check if CSV path is a file. If not, fallback to static JSON
-    if not os.path.isfile(csv_path):
-        print("CSV dataset not found. Falling back to pre-calculated static scenario JSON...")
+    # Check if we successfully loaded data. If not, fallback to static JSON
+    if df is None or df.empty:
+        print("CSV dataset not found and database table is empty. Falling back to pre-calculated static scenario JSON...")
         json_path = "static_scenarios.json"
         if not os.path.exists(json_path):
             # check in backend folder
@@ -148,9 +197,9 @@ def load_real_scenario(scenario_name):
             scenario_data = scenarios_data.get(scenario_name)
             if not scenario_data:
                 print(f"Error: Scenario '{scenario_name}' not found in static JSON data.")
+                db.close()
                 return
                 
-            db = SessionLocal()
             try:
                 db.query(CityMetric).delete()
                 db.query(SmartAlert).delete()
@@ -212,10 +261,13 @@ def load_real_scenario(scenario_name):
                 db.close()
             return
         else:
-            print("Error: Neither CSV dataset nor static scenarios JSON is available.")
+            print("Error: Neither database table nor static scenarios JSON is available.")
+            db.close()
             return
 
-    df = pd.read_csv(csv_path)
+    # Database loading succeeded, close db session for read
+    db.close()
+
     df['created_datetime'] = pd.to_datetime(df['created_datetime'], format='mixed', errors='coerce', utc=True)
     
     ml = MLEngine()
@@ -307,19 +359,19 @@ def load_real_scenario(scenario_name):
         
         hs = Hotspot(
             id=str(uuid.uuid4()),
-            center_lat=center['lat'],
-            center_lon=center['lon'],
-            radius_meters=150 + (risk['risk_score_1h']), # dynamic radius
-            parking_impact_score=pis,
-            mobility_disruption_index=mdi, # store the computed MDI score
-            spillover_impact_score=sis,
-            risk_confidence=0.97 + 0.028 * (risk['risk_score_1h'] / 100.0), # high-accuracy confidence
+            center_lat=to_native(center['lat']),
+            center_lon=to_native(center['lon']),
+            radius_meters=to_native(150 + (risk['risk_score_1h'])), # dynamic radius
+            parking_impact_score=to_native(pis),
+            mobility_disruption_index=to_native(mdi), # store the computed MDI score
+            spillover_impact_score=to_native(sis),
+            risk_confidence=to_native(0.97 + 0.028 * (risk['risk_score_1h'] / 100.0)), # high-accuracy confidence
             recommended_priority=1 if mdi >= 75.0 else 2,
-            risk_score_3h=risk['risk_score_3h'],
+            risk_score_3h=to_native(risk['risk_score_3h']),
             risk_category_3h=risk['risk_category_3h'],
             trend=risk['trend'],
             last_updated=target_time,
-            shap_values=shap_vals,
+            shap_values=to_native(shap_vals),
             location_name=center.get('location_name', f"Zone {str(c_id)[:4]}")
         )
         db.add(hs)
@@ -328,9 +380,9 @@ def load_real_scenario(scenario_name):
     avg_risk = sum([h.mobility_disruption_index for h in hotspots]) / len(hotspots) if hotspots else 0
     cm = CityMetric(
         timestamp=target_time,
-        city_mobility_risk_score=avg_risk,
+        city_mobility_risk_score=to_native(avg_risk),
         cmrs_category="Red" if avg_risk > 80 else "Orange" if avg_risk > 60 else "Yellow",
-        preventable_mobility_loss_pct=min(100, avg_risk * 0.4)
+        preventable_mobility_loss_pct=to_native(min(100, avg_risk * 0.4))
     )
     db.add(cm)
     db.commit()

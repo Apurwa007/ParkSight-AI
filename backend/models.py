@@ -51,3 +51,13 @@ class SmartAlert(Base):
     message = Column(String)
     confidence_score = Column(Float)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Violation(Base):
+    __tablename__ = 'violations'
+    id = Column(String, primary_key=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    created_datetime = Column(DateTime, nullable=False)
+    location = Column(String, nullable=True)
+    junction_name = Column(String, nullable=True)
