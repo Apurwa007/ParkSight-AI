@@ -4,7 +4,7 @@ import Map from '@/components/Map';
 import IntelligenceDrawer from '@/components/IntelligenceDrawer';
 import { Radio, AlertTriangle, Cpu, TrendingDown, ShieldCheck, Activity, BarChart3, Sparkles } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://parksight-ai-h2hy.onrender.com';
 
 const SIMULATED_ALERTS = [
   { id: 'sim-1', alert_type: 'IoT Sensor', message: 'Node #B490 detected sudden vehicle density surge near commercial plaza.', confidence_score: 99 },
