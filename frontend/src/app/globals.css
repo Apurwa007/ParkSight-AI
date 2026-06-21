@@ -1,0 +1,154 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 15, 23, 42;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-family: 'Inter', sans-serif;
+}
+
+/* Ensure MapLibre canvas fills its container */
+.maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.maplibregl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@keyframes progress-bar-stripes {
+  from { background-position: 12px 0; }
+  to { background-position: 0 0; }
+}
+
+/* Custom Scrollbar for sleek dark panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* MapLibre Popup Sleek Dark Mode Overrides */
+.maplibregl-popup {
+  z-index: 1000 !important;
+}
+.maplibregl-popup-content {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  border-radius: 12px !important;
+  color: #f8fafc !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 0 15px rgba(59, 130, 246, 0.1) !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 12px 14px !important;
+  font-family: 'Inter', sans-serif !important;
+}
+.maplibregl-popup-close-button {
+  color: #94a3b8 !important;
+  padding: 4px 8px !important;
+  font-size: 14px !important;
+  border-radius: 9999px !important;
+  top: 6px !important;
+  right: 6px !important;
+}
+.maplibregl-popup-close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: rgba(15, 23, 42, 0.95) !important;
+}
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: rgba(15, 23, 42, 0.95) !important;
+}
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: rgba(15, 23, 42, 0.95) !important;
+}
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: rgba(15, 23, 42, 0.95) !important;
+}
+
+/* Animations */
+@keyframes fadeInSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in-slide-up {
+  animation: fadeInSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.2);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+@keyframes radarBeam {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-beam {
+  animation: radarBeam 8s linear infinite;
+}
+
+/* Glow styles for cards */
+.shadow-glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+.shadow-glow-red {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+}
+.shadow-glow-orange {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
+}
+.shadow-glow-yellow {
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+}
+.shadow-glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.backdrop-blur-glass {
+  backdrop-filter: blur(12px);
+  background-color: rgba(30, 41, 59, 0.65);
+}
+

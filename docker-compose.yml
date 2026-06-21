@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_USER: parksight_user
+      POSTGRES_PASSWORD: parksight_password
+      POSTGRES_DB: parksight_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./jan to may police violation_anonymized791b166.csv:/app/dataset.csv:ro
+    environment:
+      - DATABASE_URL=postgresql://parksight_user:parksight_password@postgres:5432/parksight_db
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
